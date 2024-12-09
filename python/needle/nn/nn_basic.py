@@ -115,7 +115,7 @@ class Flatten(Module):
 class ReLU(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return ops.relu(x)
         ### END YOUR SOLUTION
 
 class Sequential(Module):
@@ -125,14 +125,22 @@ class Sequential(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        y = x
+        for module in self.modules:
+            y = module(y)
+        return y
         ### END YOUR SOLUTION
 
 
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch_size, num_classes = logits.shape
+        one_hot = init.one_hot(num_classes, y)
+        true_logits = ops.summation(logits * one_hot, axes=(1,))
+        log_sum_exp = ops.logsumexp(logits, axes=(1,))
+        loss = ops.summation(log_sum_exp - true_logits) / batch_size
+        return loss
         ### END YOUR SOLUTION
 
 
@@ -143,7 +151,8 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
@@ -159,12 +168,20 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = Parameter(init.ones(dim, device=device, dtype=dtype))
+        self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch_size, layer_size = x.shape
+        layer_mean = (x.sum(axes=(1,))/layer_size).reshape((batch_size, 1)).broadcast_to((batch_size, layer_size))
+        layer_var = (((x-layer_mean)**2).sum(axes=(1,))/layer_size).reshape((batch_size, 1)).broadcast_to((batch_size, layer_size))
+        layer_std = (layer_var + self.eps)**0.5
+        weight_broadcast = self.weight.broadcast_to((batch_size, layer_size))
+        bias_broadcast = self.bias.broadcast_to((batch_size, layer_size))
+        y = weight_broadcast * (x-layer_mean) / layer_std + bias_broadcast
+        return y
         ### END YOUR SOLUTION
 
 
