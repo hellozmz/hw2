@@ -261,22 +261,39 @@ class MatMul(TensorOp):
         return array_api.matmul(a, b)
         ### END YOUR SOLUTION
 
+    # def gradient(self, out_grad, node):
+    #     ### BEGIN YOUR SOLUTION
+    #     a = node.inputs[0]
+    #     b = node.inputs[1]
+    #     grad_a, grad_b = matmul(out_grad, transpose(b)), matmul(transpose(a), out_grad)
+
+    #     while len(grad_a.shape) > len(a.shape):
+    #         grad_a = summation(grad_a, axes=0)
+    #     while len(grad_b.shape) > len(b.shape):
+    #         grad_b = summation(grad_b, axes=0)
+
+    #     return grad_a, grad_b
+    #     ### END YOUR SOLUTION
+
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        a = node.inputs[0]
-        b = node.inputs[1]
-        grad_a, grad_b = matmul(out_grad, transpose(b)), matmul(transpose(a), out_grad)
-
-        while len(grad_a.shape) > len(a.shape):
-            grad_a = summation(grad_a, axes=0)
-        while len(grad_b.shape) > len(b.shape):
-            grad_b = summation(grad_b, axes=0)
-
-        return grad_a, grad_b
-        ### END YOUR SOLUTION
-
+        a, b = node.inputs 
+        gradient_a = matmul(out_grad, array_api.transpose(b))
+        gradient_b = matmul(array_api.transpose(a), out_grad)
+        if gradient_a.shape != a.shape:
+            gradient_a = summation(gradient_a, tuple(range(len(gradient_a.shape) - len(a.shape))))
+        if gradient_b.shape != b.shape:
+            gradient_b = summation(gradient_b, tuple(range(len(gradient_b.shape) - len(b.shape))))
+        return gradient_a, gradient_b
 
 def matmul(a, b):
+    # print(f"matmul inputs: a={a}, b={b}")
+    if a is None:
+        import traceback
+        import sys
+        print("Error: 'a' is None")
+        # print("Call stack:")
+        # traceback.print_stack()
+        # sys.exit(1)
     return MatMul()(a, b)
 
 

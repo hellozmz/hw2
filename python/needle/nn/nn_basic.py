@@ -97,9 +97,12 @@ class Linear(Module):
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
+        # print(f"Linear forward: X={X}, weight={self.weight}")
+        if X is None:
+            print("Error: 'X' is None in Linear forward")
         ### BEGIN YOUR SOLUTION
         y = ops.matmul(X, self.weight)
-        if self.bias is not None:
+        if self.bias:
             y += self.bias.broadcast_to(y.shape)
         return y
         ### END YOUR SOLUTION
@@ -108,7 +111,13 @@ class Linear(Module):
 class Flatten(Module):
     def forward(self, X):
         ### BEGIN YOUR SOLUTION
-        return ops.relu(X)
+        if len(X.shape) > 2:
+            tmp=1
+            for i in range(1, len(X.shape)):
+                tmp*=X.shape[i]
+            return X.reshape((X.shape[0], tmp))
+        else:
+            return X
         ### END YOUR SOLUTION
 
 
@@ -139,8 +148,8 @@ class SoftmaxLoss(Module):
         one_hot = init.one_hot(num_classes, y)
         true_logits = ops.summation(logits * one_hot, axes=(1,))
         log_sum_exp = ops.logsumexp(logits, axes=(1,))
-        loss = ops.summation(log_sum_exp - true_logits) / batch_size
-        return loss
+        loss = ops.summation(log_sum_exp-true_logits, axes=(0,))
+        return loss/batch_size
         ### END YOUR SOLUTION
 
 
@@ -153,11 +162,27 @@ class BatchNorm1d(Module):
         ### BEGIN YOUR SOLUTION
         self.weight = Parameter(init.ones(dim, device=device, dtype=dtype))
         self.bias = Parameter(init.zeros(dim, device=device, dtype=dtype))
+        self.running_mean = init.zeros(dim, device=device, dtype=dtype)
+        self.running_var = init.ones(dim, device=device, dtype=dtype)
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch_size, layer_size = x.shape
+        weight_broadcast = self.weight.broadcast_to((batch_size, layer_size))
+        bias_broadcast = self.bias.broadcast_to((batch_size, layer_size))
+        if self.training:
+            batch_mean = (x.sum(axes=(0,))/batch_size)
+            self.running_mean = (self.running_mean * (1 - self.momentum) + batch_mean * self.momentum).detach()
+            batch_mean = batch_mean.reshape((1, layer_size)).broadcast_to((batch_size, layer_size))
+            batch_var = (((x-batch_mean)**2).sum(axes=(0,))/batch_size)
+            self.running_var = (self.running_var * (1 - self.momentum) + batch_var * self.momentum).detach()
+            batch_var = batch_var.reshape((1, layer_size)).broadcast_to((batch_size, layer_size))
+            batch_std = (batch_var + self.eps)**0.5
+            return weight_broadcast * (x - batch_mean) / batch_std + bias_broadcast
+        else:
+            std_x = (x - self.running_mean.broadcast_to(x.shape)) / (self.running_var.broadcast_to(x.shape) + self.eps) ** 0.5
+            return weight_broadcast * std_x + bias_broadcast
         ### END YOUR SOLUTION
 
 
@@ -192,7 +217,13 @@ class Dropout(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.training:
+            drop_matrix = init.randb(*x.shape, p=(1-self.p))
+            return x * drop_matrix / (1-self.p)
+        else:
+            # 漏加了这一句，debug了一下午。原因还没理解。
+            # 明白原因了，因为没有加上下面这个逻辑，导致返回结果为None，这个问题其实可以通过模型结构一层一层推理出来。学习了。
+            return x
         ### END YOUR SOLUTION
 
 
@@ -203,5 +234,5 @@ class Residual(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return self.fn(x) + x
         ### END YOUR SOLUTION

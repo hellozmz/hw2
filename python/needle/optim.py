@@ -25,7 +25,11 @@ class SGD(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for param_id, param in enumerate(self.params):
+            grad = (self.u.get(param_id, 0) * self.momentum+ (1 - self.momentum) * (param.grad + self.weight_decay *param)).detach()
+            grad = ndl.Tensor(grad, dtype=param.dtype, device=param.device)
+            self.u[param_id] = grad
+            param.data -= self.lr * grad
         ### END YOUR SOLUTION
 
     def clip_grad_norm(self, max_norm=0.25):
@@ -60,5 +64,20 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+        for param_id, param in enumerate(self.params):
+            grad = (param.grad + self.weight_decay * param).detach()
+
+            m_curr = (self.beta1 * self.m.get(param_id, 0) + (1 - self.beta1) * grad).detach()     # running avg of grad
+            v_curr = (self.beta2 * self.v.get(param_id, 0) + (1 - self.beta2) * grad * grad).detach()   # running avg of grad^2
+
+            self.m[param_id] = m_curr
+            self.v[param_id] = v_curr
+
+            m_curr_hat = (m_curr / (1 - (self.beta1 ** self.t))).detach()
+            v_curr_hat = (v_curr / (1 - (self.beta2 ** self.t))).detach()
+
+            update = (self.lr * m_curr_hat / (ndl.ops.power_scalar(v_curr_hat, 1/2) + self.eps)).detach()
+
+            param.data -= ndl.Tensor(update, dtype=param.dtype)
         ### END YOUR SOLUTION
